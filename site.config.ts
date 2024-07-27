@@ -9,6 +9,9 @@ export default defineSiteConfig({
   author: {
     name: '流竹筠雅',
     avatar: '/avatar.jpg',
+    status: {
+      emoji: '🤡',
+    },
   },
   favicon: '/favicon.svg',
   // description: 'Valaxy Theme Yun Preview.',
