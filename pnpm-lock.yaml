@@ -14,10 +14,16 @@ importers:
       valaxy-theme-yun:
         specifier: 0.19.5
         version: 0.19.5
+      vue-gtag-next:
+        specifier: ^1.14.0
+        version: 1.14.0(vue@3.4.34(typescript@5.5.4))
     devDependencies:
       typescript:
         specifier: ^5.5.4
         version: 5.5.4
+      valaxy-addon-components:
+        specifier: ^0.0.2
+        version: 0.0.2
 
 packages:
 
@@ -2558,6 +2564,9 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  valaxy-addon-components@0.0.2:
+    resolution: {integrity: sha512-J6JeNTagohF9fNvYaYiOwVHQGuhoWamy1P01mEUfzreacaJ3CqzJU1G/uSFMTvm3CXvMo8OAQCwqa+OqBG0dkw==}
+
   valaxy-theme-yun@0.19.5:
     resolution: {integrity: sha512-hkqp6qDmyU5VY8xdKvK+j2efD//zvfiQo9aLHAhjsv1qpigAxy9WGEMfUpZzoh4XxNKdtYH/0J+ELMu/RAwxeQ==}
 
@@ -2658,6 +2667,11 @@ packages:
     peerDependenciesMeta:
       '@vue/composition-api':
         optional: true
+
+  vue-gtag-next@1.14.0:
+    resolution: {integrity: sha512-iJl+cOG2GU5NuxqzSSIpt03WVOvZqyKB9TOy7d55KiuvRklcnb2nlqxW5B/a3/sbIt7fla+XEkRyMCcoz0zAHw==}
+    peerDependencies:
+      vue: ^3.0.0-rc.11
 
   vue-i18n@9.13.1:
     resolution: {integrity: sha512-mh0GIxx0wPtPlcB1q4k277y0iKgo25xmDPWioVVYanjPufDBpvu5ySTjP5wOrSvlYQ2m1xI+CFhGdauv/61uQg==}
@@ -5566,6 +5580,8 @@ snapshots:
       kleur: 4.1.5
       sade: 1.8.1
 
+  valaxy-addon-components@0.0.2: {}
+
   valaxy-theme-yun@0.19.5:
     dependencies:
       '@explosions/fireworks': 0.0.2
@@ -5775,6 +5791,10 @@ snapshots:
       sass: 1.77.8
 
   vue-demi@0.14.10(vue@3.4.34(typescript@5.5.4)):
+    dependencies:
+      vue: 3.4.34(typescript@5.5.4)
+
+  vue-gtag-next@1.14.0(vue@3.4.34(typescript@5.5.4)):
     dependencies:
       vue: 3.4.34(typescript@5.5.4)
 

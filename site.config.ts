@@ -1,4 +1,5 @@
 import { defineSiteConfig } from 'valaxy'
+// site.config.ts
 
 export default defineSiteConfig({
   // url: 'https://valaxy.site/',
@@ -15,6 +16,11 @@ export default defineSiteConfig({
   },
   favicon: '/favicon.svg',
   // description: 'Valaxy Theme Yun Preview.',
+  search: {
+    enable: true,
+    // 设置类型为 Fuse
+    type: 'fuse',
+  },
   social: [
     {
       name: 'RSS',
@@ -95,10 +101,6 @@ export default defineSiteConfig({
       color: 'var(--va-c-text)',
     },
   ],
-
-  search: {
-    enable: false,
-  },
 
   sponsor: {
     enable: true,
