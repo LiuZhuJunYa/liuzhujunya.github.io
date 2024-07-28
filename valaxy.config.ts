@@ -1,7 +1,7 @@
 import { defineValaxyConfig } from 'valaxy'
 import type { UserThemeConfig } from 'valaxy-theme-yun'
 import { addonComponents } from 'valaxy-addon-components'
-
+import extendMarkdown from './components/extendMarkdown'
 // add icons what you will need
 const safelist = [
   'i-ri-home-line',
@@ -11,6 +11,24 @@ const safelist = [
  * User Config
  */
 export default defineValaxyConfig<UserThemeConfig>({
+  markdown: {
+    /**
+     * KaTeX options
+     * @see https://katex.org/docs/options.html
+     */
+    katex: {
+      displayMode: true,
+      output: 'mathml',
+      fleqn: false,
+      throwOnError: false,
+      errorColor: '#cc0000',
+      globalGroup: true,
+    },
+    config: (md) => {
+      extendMarkdown(md)
+    },
+  },
+
   // site config see site.config.ts
   addons: [
     addonComponents(),

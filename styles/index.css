@@ -1,0 +1,43 @@
+.definition {
+  margin: 1rem 0;
+  padding: 0.1rem 1.5rem;
+  border-radius: 0.4rem;
+  background-color: #f0f4f8;
+}
+
+.definition .title {
+  font-weight: bold;
+}
+
+.theorem {
+  margin: 1rem 0;
+  padding: 0.1rem 1.5rem;
+  border-radius: 0.4rem;
+  background-color: #edfbf2;
+}
+
+.theorem .title {
+  font-weight: bold;
+}
+
+.algorithm {
+  margin: 1rem 0;
+  padding: 0.1rem 1.5rem;
+  border-radius: 0.4rem;
+  background-color: #fbfbed;
+}
+
+.algorithm .title {
+  font-weight: bold;
+}
+
+.conclusion {
+  margin: 1rem 0;
+  padding: 0.1rem 1.5rem;
+  border-radius: 0.4rem;
+  background-color: #f9f2f9;
+}
+
+.conclusion .title {
+  font-weight: bold;
+}

@@ -12,12 +12,15 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "valaxy": "0.19.5",
+    "markdown-it": "^14.1.0",
     "valaxy-theme-yun": "0.19.5",
     "vue-gtag-next": "^1.14.0"
   },
   "devDependencies": {
+    "markdown-it-container": "^4.0.0",
+    "markdown-it-katex": "^2.0.3",
     "typescript": "^5.5.4",
+    "valaxy": "0.19.5",
     "valaxy-addon-components": "^0.0.2"
   }
 }
