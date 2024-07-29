@@ -30,6 +30,7 @@ declare module 'vue-router/auto-routes' {
     '/page/[page]': RouteRecordInfo<'/page/[page]', '/page/:page', { page: ParamValue<true> }, { page: ParamValue<false> }>,
     '/posts/20240728 建站说明': RouteRecordInfo<'/posts/20240728 建站说明', '/posts/20240728 建站说明', Record<never, never>, Record<never, never>>,
     '/posts/静态代码分析/20240729 1 静态分析概述/20240729 1 静态分析概述': RouteRecordInfo<'/posts/静态代码分析/20240729 1 静态分析概述/20240729 1 静态分析概述', '/posts/静态代码分析/20240729 1 静态分析概述/20240729 1 静态分析概述', Record<never, never>, Record<never, never>>,
+    '/posts/静态代码分析/20240729 2 程序的中间表示/20240729 2 程序的中间表示': RouteRecordInfo<'/posts/静态代码分析/20240729 2 程序的中间表示/20240729 2 程序的中间表示', '/posts/静态代码分析/20240729 2 程序的中间表示/20240729 2 程序的中间表示', Record<never, never>, Record<never, never>>,
     '/tags/': RouteRecordInfo<'/tags/', '/tags', Record<never, never>, Record<never, never>>,
   }
 }
