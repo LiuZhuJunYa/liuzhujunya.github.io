@@ -11,6 +11,9 @@ const safelist = [
  * User Config
  */
 export default defineValaxyConfig<UserThemeConfig>({
+  vite: {
+    publicDir: 'public'
+  },
   markdown: {
     /**
      * KaTeX options
