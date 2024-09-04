@@ -64,4 +64,22 @@ categories:
 
 **状态还原机制。**状态还原是一种用于智能合约中错误处理和访问控制的独特机制。如果在交易过程中遇到未满足的条件，所有与此交易相关的合约状态都可以回滚到交易前的值。这种状态还原机制对于智能合约场景至关重要，因为它确保了智能合约中交易的原子性。在智能合约中，状态还原可以通过调用断言语句（即 `require`、`assert` 和`revert`）来实现。例如，带有 `"require(tx.origin = msg.sender)"` 的智能合约表示该函数只能由外部拥有账户（EOA）调用[5]，如果函数的调用者不是 EOA（例如，合约账户），则该交易中进行的所有其他状态更改都将被回滚。
 
-> 吐槽一下这个部分，说实话我感觉这个地方第一眼看上去我还以为是引言复制粘贴了一次😂
+> 吐槽一下这个部分，说实话我感觉这个地方第一眼看上去我还以为是引言复制粘贴了一次😂😂😂
+>
+> 解释原文：
+>
+> In smart contracts, state-reverting can be implemented by invoking the as sertion statement (i.e., require, assert, and revert). For example, a smart contract with *"require(tx.origin == msg.sender)"* indicates that the function can only be invoked by an external owned account (EOA) [5], if the caller of the function is not an EOA (e.g., contract account), all other state changes made in this transaction will be rolled back.
+>
+> 因为合约是可以相互之间调用交互的，所以检查当前调用函数的用户（msg.sender）是否是发起交易的用户（tx.origin），而 tx.origin  只能是 EOA 用户（因为合约用户没有私钥，无法签名发起交易）
+
+### 问题陈述
+
+在本文中，我们的研究重点是与状态还原机制相关的漏洞。我们将这种类型的漏洞称为状态还原漏洞（SRV）。
+
+**状态还原漏洞（SRV）** 最近的研究和报告[23]表明，状态还原机制经常被攻击者利用，导致严重的攻击和安全事件。更具体地说，在这些攻击中，攻击者使用状态还原机制，使交易回滚，如果交易结果不如预期（例如，不利于攻击者）。状态还原攻击在 GameFi 市场中更为普遍，影响游戏公平性，并给合约所有者[13]或 GameFi 用户带来巨大的财务损失。
+
+**动机示例** 图1展示了一个具有状态还原漏洞的智能合约示例，该漏洞影响了游戏的公平性，同时展示了攻击者如何通过操纵合约状态获得非法利润。在这个示例中，状态变量 SheepToken 和 WolfToken 是两种不同价值的代币（即，WolfToken 比 SheepToken 更贵）。一个随机数（种子）决定了赌博结果，有 90% 的机会获得 SheepToken，10% 的机会获得 WolfToken（第7-11行）。不幸的是，由于缺乏适当的访问控制，攻击者可以在赌博游戏前后随意检查这些代币的余额（第17-19行）。为了在游戏中最大化收益，攻击者使用 require 语句（第21行）在他获得低价值的 SheepToken 时回滚整个交易（即只获得 WolfToken）。通过这种方式，攻击者确保自己总是获得 WolfToken，从而破坏了游戏的公平性并获得了更多利润。
+
+<p style="text-align:center"><img src="./1.png" alt="bug" style="zoom:40%;"/></p>
+
+<p style="text-align:center">图1：状态回退漏洞的示例及攻击者如何利用其获取利益</p>
