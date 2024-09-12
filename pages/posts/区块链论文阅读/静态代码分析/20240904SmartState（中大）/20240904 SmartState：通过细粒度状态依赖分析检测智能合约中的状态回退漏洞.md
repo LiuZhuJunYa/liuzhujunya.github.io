@@ -225,7 +225,7 @@ FSM 通过以下步骤生成此输出：
 
 SmartState 将之前提取的控制流、状态读写（R&W）依赖、ASD 和 TSD 合并在一起，以构建细粒度的状态依赖图（SDG），从而以更有效的方式促进 SRV 的检测。下面我们将详细介绍 SDG 及其构建过程。
 
-`数据结构`。由 SmartState 构建的 SDG 表示为一个三元组 $G_s=(N_s,E_s,X)$ 。具体来说，SDG 编码了以下信息：(1) SDG 中的节点是一组状态变量和表示程序操作的基本块节点。在这里，S 表示状态变量的集合，B 表示基本块节点的集合。我们将基本块作为 SDG 节点纳入其中，因为基本块提供了与状态变量（即函数调用）相关的重要依赖信息。因此，我们说 $N_s:={S∪B}$。(2) SDG 中的边是一组控制流边、状态 R&W 依赖边、ASD 边和 TSD 边。$X(E_s)→{C,R&W,ASD,TSD}$ 是一个标签函数，用于将一条边映射到四种类型中的一种。
+`数据结构`。由 SmartState 构建的 SDG 表示为一个三元组 $G_s=(N_s,E_s,X)$ 。具体来说，SDG 编码了以下信息：(1) SDG 中的节点是一组状态变量和表示程序操作的基本块节点。在这里，S 表示状态变量的集合，B 表示基本块节点的集合。我们将基本块作为 SDG 节点纳入其中，因为基本块提供了与状态变量（即函数调用）相关的重要依赖信息。因此，我们说 $N_s:={S∪B}$。(2) SDG 中的边是一组控制流边、状态 R&W 依赖边、ASD 边和 TSD 边。 $X(E_s)→{C,R&W,ASD,TSD}$ 是一个标签函数，用于将一条边映射到四种类型中的一种。
 
 `SDG 构建`。SmartState 通过逐步添加 ASD 边、TSD 边和状态 R&W 依赖边到控制流图来构建 SDG。对于每个 ASD，SmartState 搜索控制流图并找到源和目标基本块，然后用有向边将它们连接起来。请注意，如果函数 A 对函数 B 具有 ASD，则此类 ASD 的源是函数 B 的结束位置（即，最后一个语句如 `return`），而 ASD 的目标是函数 A 的起始位置。之后，SmartState 为每个 ASD 添加源和目标之间的有向边。同样，SmartState 以相同的方式将 TSD 边添加到图中。对于状态 R&W 依赖边，SmartState 搜索读取或写入状态变量的基本块节点，并为这些基本块和状态变量之间添加有向边。图 7 显示了所构建的 SDG 示例。可以看出，ASD 边和 TSD 边用不同的颜色标记。
 
@@ -256,4 +256,276 @@ $$
 
 步骤3：找到受状态还原影响的污点状态变量。在找到入口路径后，SmartState 继续在 SDG 上执行前向污点传播，并计算受影响的状态变量。显然，这些状态变量可能受到漏洞的颠覆性流程的影响。最后，所有受影响的函数和状态变量将作为描述 SRV 的漏洞路径报告。
 
-为了执行污点传播，污点源可以分为两种类型：合约调用者传递的参数和公共函数的参数。SmartState 的污点汇包括外部调用或智能合约的状态变量（包括 SRV 指标）。有关污点源和污点汇的详细信息总结在表2中。
+为了执行污点传播，污点源可以分为两种类型：合约调用者传递的参数和公共函数的参数。SmartState 的污点汇包括外部调用或智能合约的状态变量（包括 SRV 指标）。有关污点源和污点汇的详细信息总结在表 2 中。
+
+<p style="text-align:center">表2：由 SmartState 定义的作为污点源和污点汇的 EVM 指令</p>
+
+<table border="1">
+  <tr>
+    <th></th>
+    <th>类型</th>
+    <th>EVM 指令或关键字或语句</th>
+  </tr>
+  <tr>
+    <td rowspan="2">源</td>
+    <td>(1) 合约调用者传递的参数</td>
+    <td>CALLDATALOAD, CALLDATACOPY, CALLER, ORIGIN, CALLVALUE, CALLDATASIZE</td>
+  </tr>
+  <tr>
+    <td>(2) 公共函数的参数</td>
+    <td>Public, External</td>
+  </tr>
+  <tr>
+    <td rowspan="2">污点汇</td>
+    <td>(1) 外部调用</td>
+    <td>CALL, CALLCODE, STATICCALL, DELEGATECALL</td>
+  </tr>
+  <tr>
+    <td>(2) 状态变量</td>
+    <td>SSTORE, BALANCE, ADDRESS, SRV 指标</td>
+  </tr>
+</table>
+
+再次，我们以图 8 中显示的运行示例为例来展示这一过程。对于这个智能合约，SmartState 在 SDG 上搜索 SRV 指标。SmartState 识别出函数 MintToken 满足步骤1，因为 MintToken 使用了一个随机数（种子）来确定对状态变量（即，SheepToken 和 WolfToken）的修改，且没有访问控制。然后，SmartState 执行步骤2，确定 MintToken 是一个可以被外部攻击者访问的公共函数。最后，SmartState 通过数据流分析筛选出受漏洞影响的状态变量，执行步骤3。结果，SmartState 报告了合约 TokenGame 中的漏洞路径如下：(1) MintToken → {SheepToken, WolfToken}，(2) MintToken → Playtoearn → {Earning}，(3) MintToken → Withdraw → {Balance}。
+
+<p style="text-align:center"><img src="./8.png" alt="bug"/></p>
+
+<p style="text-align:center">图8：漏洞检测过程的示例</p>
+
+## 评估
+
+在本节中，我们首先介绍我们的实验设置和用于评估的两个数据集（手动标注的 SRV 数据集和大规模智能合约数据集）。然后，我们展示了 SmartState 在手动标注的 SRV 数据集上的评估结果，包括误报和漏报。最后，我们讨论了大规模分析的结果，并在实际环境中识别出了新的 SRV。
+
+### 实现与评估设置
+
+我们使用 Python 3.8.10 实现了约 3,400 行代码的 SmartState。我们所有的评估实验都在一个配备了 Intel i9-10980XE CPU (3.0GHz)、RTX3090 GPU 和 250 GB 内存的 Ubuntu 20.04 服务器上进行。
+
+**数据集和地面真值的建立。** 我们使用以下两个数据集进行评估实验。
+
+手动标注的 SRV 数据集 $(D_{SRV})$ 。该数据集构建了用于评估 SmartState 效果的地面真值。更具体地说，我们手动收集并注释了从 47 份智能合约中收集的共 91 个 SRV【2】。特别是，其中 27 个 SRV 属于非法获利攻击，另外 64 个 SRV 属于 DoS。 在该数据集中，17 个 SRV（来自 11 份智能合约）是基于公开报告的攻击事件收集的。据我们所知，这是从公开资源中最全面的 SRV 收集。我们手动从此类报告中逐一审核确定的 SRV。剩余的 74 个 SRV（来自 36 个智能合约）是通过检查流行 DApp 的金融相关合约（如钱包和博彩）手动收集的。为了避免偏差，三位研究人员参与了注释过程。每位研究人员分别执行注释。只有当三位研究人员一致确认时，才将该漏洞确认为有效的 SRV。我们有选择性地排除了可能造成严重影响（例如，直接经济损失）的金融应用程序，但这并不意味着 SmartState 是专门为金融应用程序设计的，因为 SRV 的模式对所有合约都是通用的。
+
+大规模数据集 $(D_{large})$ 。为了展示 SmartState 在实际环境中发现 SRV 的效果，我们使用了第二个数据集，其中包含 47,351 份智能合约。该数据集是一个公开数据集，已在著名的实证研究中提出【16】。
+
+评估指标。我们总结了以下研究问题 (RQs) 来评估 SmartState。
+
+\- RQ1. SmartState 在检测状态还原漏洞方面的效果如何？
+
+\- RQ2. 对于状态依赖性分析，提取的 ASD 和 TSD 对检测 SRV 有帮助吗？
+
+\- RQ3. 与现有的最先进的检测机制相比，SmartState 的表现如何？
+
+\- RQ4. SmartState 能够从真实世界的智能合约中检测到 SRV 吗？
+
+### SmartState 的有效性
+
+为了解答 RQ1，我们在手动标注的 SRV 数据集 $(D_{SRV})$ 上运行 SmartState 以评估其精度和召回率。例如，我们为数据集中的每个智能合约分配相同的时间预算（即，10 分钟超时）。通过手动检查报告的结果，并将这些结果与  $D_{SRV}$ （即 47 份智能合约中的 91 个漏洞）中的地面真值数据进行比较来计算精度（假阳性）和召回率（假阴性）。
+
+表3 展示了整体结果。可以看出，SmartState 达到了较高的召回率（即 89.13%）和精度（即 87.23%）。
+
+<p style="text-align:center">表3：SmartState 在手动标注的 SRV 数据集 $(D_{SRV})$ 上的整体效果</p>
+
+<table style="text-align:center">
+    <thead>
+        <tr>
+            <th>攻击利用 SRV</th>
+            <th colspan="3">精确度</th>
+            <th colspan="3">召回率</th>
+        </tr>
+        <tr>
+            <th></th>
+            <th>TP</th>
+            <th>FP</th>
+            <th>比例</th>
+            <th>TP</th>
+            <th>FN</th>
+            <th>比例</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>非法获利攻击</td>
+            <td>24</td>
+            <td>5</td>
+            <td>82.76%</td>
+            <td>24</td>
+            <td>4</td>
+            <td>85.71%</td>
+        </tr>
+        <tr>
+            <td>DoS 攻击</td>
+            <td>58</td>
+            <td>7</td>
+            <td>89.23%</td>
+            <td>58</td>
+            <td>6</td>
+            <td>90.63%</td>
+        </tr>
+        <tr>
+            <td>总计</td>
+            <td>82</td>
+            <td>12</td>
+            <td>87.23%</td>
+            <td>82</td>
+            <td>10</td>
+            <td>89.13%</td>
+        </tr>
+    </tbody>
+</table>
+
+`假阳性和假阴性`。我们手动检查了由 SmartState 引入的假阳性和假阴性。在 12 个假阳性中，我们进一步检查发现，大多数是由于 SmartDagger（即 SmartState 中使用的现有分析器）产生的控制流分析限制所导致的。例如，由于 SmartDagger 无法找到函数边界，SmartState 报告了错误的漏洞函数结果。为了解决这些假阳性问题，SmartState 可以通过集成高级字节码分析器来恢复函数边界从而改进。对于 10 个假阴性，其中大多数是因为它们依赖于区块链平台未控制的第三方数据（例如，不受 Oracle 控制的伪随机数）。事实上，像我们这样的静态分析方法无法解决此问题，因为它们需要区块链外部的第三方数据。
+
+### ASD 和 TSD 的有效性
+
+为了解答 RQ2，我们评估了 SmartState 中各个组件（即 ASD 和 TSD）的有效性。如在 4.1 和 4.2 节中提到的，ASD 和 TSD 是 SmartState 所拥有的两个重要优势，确保了漏洞分析的可靠性（即，避免假阴性）。例如，SmartState 可以利用这些优势进行更多的污点跟踪，从而识别出更多的漏洞路径，与那些未考虑 ASD 和 TSD 的方法相比。因此，ASD 和 TSD 的有效性反映在召回率上。我们将当前的设计与两个基线方法进行了比较。更具体地说，SmartState 在不考虑 ASD 和 TSD 的情况下进行比较，以及在不考虑 TSD 的情况下进行比较。我们在 $D_{SRV}$  上运行了这些基线框架。
+
+`与不考虑 TSD 的 SmartState  进行比较`。我们通过将 SmartState 与未考虑 TSD 的基线方法进行比较，评估 TSD 的有效性。表 4 中的第 2 列和第 3 列显示了此比较的召回率。由于忽略了 TSD，未考虑 TSD 的基线方法的总召回率仅为77.17%，非法获利攻击和DoS攻击的召回率显著下降。特别是，非法获利攻击的召回率下降得比DoS攻击更快。相比之下，SmartState在这两种场景中的表现良好（超过85%）。总之，提取的 TSD 有效地帮助 SmartState 提高了 SRV 检测的召回率。特别是，提取的 TSD 对于检测非法获利攻击比检测DoS攻击更为重要。
+
+<p style="text-align:center">表4：SmartState 与其他两个基线方法在手动标注的 SRV 数据集 $(D_{SRV})$ 上的比较结果</p>
+
+<table style="text-align:center">
+    <thead>
+        <tr>
+            <th>方法</th>
+            <th colspan="3">SmartState 无 ASD 和 TSD</th>
+            <th colspan="3">SmartState 无 TSD</th>
+            <th colspan="3">SmartState</th>
+        </tr>
+        <tr>
+            <th></th>
+            <th>TP</th>
+            <th>FN</th>
+            <th>召回</th>
+            <th>TP</th>
+            <th>FN</th>
+            <th>召回</th>
+            <th>TP</th>
+            <th>FN</th>
+            <th>召回</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>非法获利攻击</td>
+            <td>12</td>
+            <td>16</td>
+            <td>42.86%</td>
+            <td>18</td>
+            <td>10</td>
+            <td>64.28%</td>
+            <td>24</td>
+            <td>4</td>
+            <td>85.71%</td>
+        </tr>
+        <tr>
+            <td>DoS 攻击</td>
+            <td>42</td>
+            <td>22</td>
+            <td>65.63%</td>
+            <td>53</td>
+            <td>11</td>
+            <td>82.81%</td>
+            <td>58</td>
+            <td>6</td>
+            <td>90.63%</td>
+        </tr>
+        <tr>
+            <td>总计</td>
+            <td>54</td>
+            <td>38</td>
+            <td>58.70%</td>
+            <td>71</td>
+            <td>21</td>
+            <td>77.17%</td>
+            <td>82</td>
+            <td>10</td>
+            <td>89.13%</td>
+        </tr>
+    </tbody>
+</table>
+
+`与不考虑 TSD 和 ASD 的 SmartState 进行比较`。之后，我们通过将 SmartState 与另一个不考虑 ASD 和 TSD 的基线方法进行比较，进一步评估了 ASD 的有效性。表4中的第 1 列和第 3 列显示了此比较的召回率。由于忽略了 ASD 和 TSD，该基线方法的总召回率仅为 58.70%，非法获利攻击和DoS攻击的召回率下降得更快。而且，这种基线方法产生了更多的假阴性（即，总共有17个假阴性）。总的来说，提取的 ASD 还显著帮助 SmartState 提高了 SRV 检测的召回率。
+
+此外，我们手动检查了两个基线方法报告的每个假阴性。检查结果显示，38个假阴性结果中有17个（即，44.74%）可以通过分析 ASD 避免，而 38 个假阴性结果中的 11 个（即，28.95%）可以通过分析 TSD 避免，这些假阴性被这些基线方法忽略。例如，图 9 显示了一个可以通过分析 ASD 来避免的假阴性示例。在这种情况下，不考虑 ASD 和 TSD 的基线方法只能报告函数 redeem 包含 DoS 攻击漏洞，因为它无法识别 redeem 和 transferFrom 函数之间的 ASD。然而，如果我们分析状态依赖性，我们会发现函数 redeem 是一个漏洞指标，它可以污染函数 transferFrom。SmartState 避免了此类假阴性，因为它提取了 ASD 边，从而识别了所有相关的漏洞。
+
+<p style="text-align:center"><img src="./9.png" alt="bug"/></p>
+
+<p style="text-align:center">图9：由未考虑 ASD 和 TSD 的 SmartState 报告的假阴性示例，但被 SmartState 有效消除</p>
+
+<p style="text-align:center"><img src="./10.png" alt="bug"/></p>
+
+<p style="text-align:center">图10：由 eTainter 和 Madmax 报告的假阳性示例，但被 SmartState 避免</p>
+
+### 漏洞指标分析的有效性
+
+如前所述在 4.4 节中提到的，SmartState 的另一个优势是其在检测过程中处理漏洞指标分析，这有助于提高 SRV 识别的精度。漏洞指标分析的有效性体现在精度率上。为了评估漏洞指标分析的有效性，我们将 SmartState 的精度率与最先进的工具（即 eTainter【19】、Madmax【20】和 Slither【18】）进行比较。由于上述三个工具都不支持识别非法获利攻击漏洞，我们通过将 SmartState 与三个工具在识别 DoS 攻击漏洞方面进行比较，来评估漏洞指标分析的有效性。我们在大规模数据集 $(D_large)$ 上运行了所有这些工具，以评估它们的精度。
+
+如表5所示，SmartState 的精度（即 84.16%）远高于前三个工具。我们进一步的调查发现，大多数由之前工具引入的假阳性可以通过我们提出的漏洞指标分析方法来避免。在图10中，我们举例说明了 SmartState 如何避免 eTainter、Madmax 和 Slither 报告的假阳性。所有之前的工具都错误地认为函数 refund 包含 SRV，因为函数 refund 在循环中调用了外部调用（第7-8行）。实际上，如果我们检查访问控制（第5行），我们会发现该函数只能由外部拥有账户访问，而不是合约账户，这使得函数 refund 是安全的。由于检测方法的不完善，之前的工具未能识别函数的访问控制，因此报告了错误的假阳性结果。相反，SmartState 通过漏洞指标分析对函数 refund 进行多次检查，从而推断该函数具有访问控制，因此是安全的，从而避免了此类假阳性。
+
+<p style="text-align:center">表5：不同工具在大规模数据集 $(D_large)$ 上的精度率</p>
+
+<table style="text-align:center">
+    <thead>
+        <tr>
+            <th>工具</th>
+            <th colspan="3">精确度</th>
+        </tr>
+        <tr>
+            <th></th>
+            <th>TP</th>
+            <th>FP</th>
+            <th>比率</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>eTainter</td>
+            <td>178</td>
+            <td>215</td>
+            <td>45.29%</td>
+        </tr>
+        <tr>
+            <td>Madmax</td>
+            <td>19</td>
+            <td>54</td>
+            <td>26.03%</td>
+        </tr>
+        <tr>
+            <td>Slither</td>
+            <td>151</td>
+            <td>2555</td>
+            <td>7.08%</td>
+        </tr>
+        <tr>
+            <td>SmartState</td>
+            <td>574</td>
+            <td>108</td>
+            <td>84.16%</td>
+        </tr>
+    </tbody>
+</table>
+
+### 大规模分析以发现 SRVs
+
+为了解答 RQ4，我们通过在大规模数据集 $(D_large)$ 上运行 SmartState 来评估其检测 SRV 的性能。我们的领域专家通过多数投票手动检查这些结果，并确认 SmartState 成功识别出 406 个新的 SRV，这些 SRV 来自 47,351 份真实世界的智能合约。具体来说，SmartState 报告了 771 个警告（包括 651 个 TP 和 120 个 FP 手动确认）。651 个 SRV 中的 245 个可以通过最先进的工具（例如，Madmax【20】、Slither【18】和 eTainter【19】）检测到。因此，SmartState 报告了 406 个（651-245）个新的 SRV。特别是，我们根据交易次数对大规模数据集 (D_large) 进行了排序，并截取了前 2000 个交易次数最多的智能合约作为“流行智能合约”。我们发现这些流行智能合约中存在 11 个 SRV。此外，至本文提交时，这 11 个 SRV 影响的总资产达到 428,600 美元。下面我们讨论两个案例研究以作说明。
+
+`案例研究1：在 0xEB834ae72B30866af20a6ce5440Fa598BfAd3a42` 处。该智能合约来自 GameFi WolfGame，在前1000名市场价值最高的 GameFi 中排名第83。不幸的是，该智能合约包含一个 SRV。此 SRV 的漏洞指标是函数 claimSheepFromBarn，因为它利用一个随机数来确定免税行为的惩罚结果，但未禁止外部合约的调用。因此，恶意玩家可以通过调用特定的调用链（即，从 claimManyFromBarnAndPack 到 claimSheepFromBarn）攻击函数 claimSheepFromBarn。在这种情况下，SmartState 有效地识别了漏洞函数，并利用函数 claimSheepFromBarn 和函数 mint 之间的状态依赖性来确定状态变量 balance 被 SRV 操纵。
+
+`案例研究2：在 0x222222de1914c2b303504e3b035cf46b11fcf6c6` 处。至本文提交时，该智能合约拥有157.41 ETH（即，248,396 美元）的资产，并涉及 15,465 次交易。不幸的是，该智能合约包含 SRV。在这种情况下，漏洞指标是函数 $pay_{royalite}$ ，因为它在循环中调用外部转移，但未禁止外部合约的调用。如果其中一个用户拒绝资金，并通过断言语句使交易失败，整个循环将失败并锁定合约中的所有奖励。在这种情况下，SmartState 有效地定位了漏洞指标，并报告状态变量 withdraw 和 balance 被 SRV 污染。
+
+### 讨论与限制
+
+总而言之，SmartState 展示了其在检测 SRV 方面的优势。(1) 正如评估中所示，SmartState 可以有效地识别智能合约中的 SRV，而之前的工作中只有少数能够支持。(2) SmartState 可以通过分析智能合约的状态依赖性，准确找出 SRV 的根本原因（即 SRV 的指标）并识别被 SRV 污染的状态变量。因此，SmartState 可以更精确地定位漏洞，相对于那些致力于找出漏洞副作用（例如 Gas 不足）的方法来说，其效果更佳且更实用。所有开发者、参与者和第三方机构都可以利用 SmartState 来检查智能合约的安全性。
+
+SmartState 可以在以下几个方面进行改进：(1) 目前，SmartState 可以支持识别两大类 SRV，我们可以进一步扩大其检测范围，以便支持更多新出现的漏洞类型。(2) 为了进一步提高其有效性，SmartState 可以使用更精确和更强大的工具来代替 SmartDagger 进行程序逻辑恢复分析。
+
+下面我们分析 SmartState 所采用的每种设计的健全性和完整性。首先，显式依赖性构建受到程序逻辑恢复（即由 SmartDagger 提供）的限制，导致信息不精确和不完整。其次，TSD 的提取受到交易历史数据多样性的限制，由于有限状态机无法提取所有 TSD，它可能引入不健全性。第三，SDG 的构建和漏洞分析是完整且健全的，因为它既不引入错误信息也不会遗漏有效信息。
+
+## 相关工作
+
+`智能合约的漏洞检测`。目前，已经提出了许多程序分析工具来检测智能合约中的漏洞。与传统的程序分析相似，这些工具可以分为静态分析工具和动态分析工具。具体而言，静态分析工具包括 Oyente【31】、Osiris【38】、Zeus【26】、Sailfish【11】、SmartDagger【29】、EOSafe【23】、Ethainter【12】、Clairvoyance【40】、MadMax【20】、Manian【33】、Securify【39】等。其他工具如 ContractFuzzer【25】、Sereum【34】、EOSFuzzer【24】、Echidna【21】、echidna-parade【22】、sFuzz【32】、TXSPECTOR【41】、SMARTIAN【14】、WASAI【13】和 RLF【36】则基于动态测试或分析。然而，这些工具在检测 SRV 方面的效果不足，因为它们没有考虑用于漏洞检测的细粒度状态依赖性。当最近的工作（例如，Sailfish【11】）集中于通过分析状态依赖性检测状态不一致性时，Sailfish 构建的 SDG 只能覆盖一部分状态依赖性（即控制流和状态 R&W 依赖性），这不能覆盖 SRV 检测中遇到的状态依赖性。
+
+`状态还原漏洞`。与 SRV 密切相关的工作有限。EOSafe【23】和 WASAI【13】主要集中在检测回滚攻击（即回滚导致的非法获利）上，适用于 WASM 语言编写的智能合约。然而，由于这两个框架主要通过分析启发式模式来识别漏洞而没有考虑智能合约中重要的状态依赖性，它们只能覆盖 SRV 的一部分（即非法获利）。此外，它们在检测这种类型的状态还原相关攻击方面效果不足。而用于检测 SRV 的两步（第3节中介绍）是基于启发式的，我们提出的 SRV 指标更加通用和基础。此外，SmartCheck【37】、Slither【18】、eTainter【19】和 Madmax【20】倾向于检测由于状态还原引起的 DoS 漏洞。然而，DoS 只是 SRV 的一个子类型，eTainter【19】中的检测依赖于特定的启发式，如检测 Gas 不足或耗尽。这种设计不足以有效且通用于所有 SRV（例如，未经授权的状态更改）。
+
+## 结论
+
+本文提出了 SmartState，这是一种静态分析框架，用于识别智能合约中的状态还原漏洞。SmartState 主要分为两个过程。首先，SmartState 从智能合约的字节码和历史交易中提取状态依赖性，并进一步将这些依赖性作为细粒度状态依赖图进行分析。其次，SmartState 利用基于污点分析的独特漏洞检测方法，根据我们提出的指标分析，在状态依赖图上找出状态还原漏洞。我们在手动标注的 47 个智能合约的数据集和一个包含 47,398 个真实世界智能合约的大规模数据集上评估了 SmartState。评估结果表明，SmartState 在检测状态还原漏洞方面表现出高精度（87.23%）和高召回率（89.13%）。此外，SRV 在真实世界的智能合约中普遍存在。特别是，我们发现 11 个 SRV 存在于频繁使用的智能合约中，影响的总资产为 428,600 美元。
