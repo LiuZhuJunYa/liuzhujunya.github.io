@@ -115,16 +115,6 @@ SmartAxe 被设计为一种通用框架，用于检测跨链桥接中由漏洞�
 
 此外，基于提取的访问控制约束，SmartAxe 识别桥接合约的访问控制不完整性。
 
-<p style="text-align:center">表 2. 关联资源与安全检查的概率推断模式</p>
-
-| 模式 | 条件                                | 概率分配                                                 |
-| ---- | ----------------------------------- | -------------------------------------------------------- |
-| P1   | ControlFlowDependency(c, {r})       | Association(c, p, r) = true (0.95)                       |
-| P2   | ControlFlowDependency(c, R) ∨ r ∈ R | Association(c, p, r) = true (0.60)                       |
-| P3   | SameBlock(r₁, r₂)                   | Association(c, p₁, r₂) —> 0.60 —> Association(c, p₁, r₁) |
-| P4   | SemanticCorrelation(r₁, r₂)         | Association(c, p₂, r₂) —> 0.70 —> Association(c, p₁, r₁) |
-| P5   | DataFlowDependency(r₁, r₂)          | Association(c, p₂, r₂) —> 0.80 —> Association(c, p₁, r₁) |
-
 `C2: 识别跨链语义不一致性`。与单个区块链上的漏洞分析不同，跨链语义不一致性 CCV 的识别在很大程度上依赖于对跨链数据传输过程中上下文信息的建模（例如，发出 $I_d$ ，中继器告知 $I_p$ ）。识别上下文信息绝非易事，因为这需要跨链桥接两端的控制流和数据流的精确对齐，而这在现有的研究中尚未被充分支持。此外，很难识别控制流和数据流对齐的位置，因为定位对齐点需要进行细粒度的语义和控制流分析。
 
 为了解决第二个挑战，SmartAxe 通过细粒度的语义和控制流分析，识别了两种类型的函数作为对齐点，即：（1）实现存入和锁定的函数；（2）实现授权和提取的函数。随后，SmartAxe 对相应的对齐点进行对齐，并构建了跨链控制流图（xCFG）。为了便于检测 CCV 的跨链语义一致性，SmartAxe 对 xCFG 进行数据流分析，从而构建跨链数据流图（xDFG）。
@@ -285,39 +275,15 @@ SmartAxe 将访问控制约束的资源分为四种类型：（1）字段访问�
 
 然后，SmartAxe 引入了先验概率来表示关联 $Association(c_k,p_j,r_i)$ 的置信度。先验概率是一个介于 0 和 1 之间的值，表示我们对关联 $Association(c_k,p_j,r_i)$ 的信任程度。此外，SmartAxe 通过分析访问控制属性（例如，控制流、数据流和资源与访问控制检查之间的语义关系）来确定先验概率。受之前研究 [El-Rewini et al. 2022] 的启发，我们总结了跨链桥接合约中资源与安全检查之间的专用关联模式及其相应的先验概率，如表 2 所示。
 
-<table border="1">
-    <caption>表 2. 关联资源与安全检查的概率推断模式</caption>
-    <tr>
-        <th>模式</th> 
-        <th>条件</th>
-        <th>概率分配</th>
-    </tr>
-    <tr>
-        <td>P1</td>
-        <td> $ControlFlowDependency(c,\{r\})$ </td>
-        <td> $Association(c,p,r)=true(0.95)$ </td>
-    </tr>
-    <tr>
-        <td>P2</td>
-        <td> $ControlFlowDependency(c,R)$ $\vee$ $r$ $\in$ $R$ </td>
-        <td> $Association(c,p,r)=true(0.60)$ </td>
-    </tr>
-    <tr>
-        <td>P3</td> 
-        <td> $SameBlock(r_1,r_2)$ </td> 
-        <td> $\[\text{Association}(c,p_1,r_2)\overset{0.60}{\longrightarrow}\text{Association}(c, p_1, r_1)\]$ </td> 
-    </tr>
-    <tr>
-        <td>P4</td>
-        <td> $SemanticCorrelation(r_1,r_2)$ </td>
-        <td> $\[\text{Association}(c,p_2,r_2)\overset{0.70}{\longrightarrow}\text{Association}(c, p_1, r_1)\]$ </td>
-    </tr>
-    <tr> 
-        <td>P5</td>
-        <td> $DataFlowDependency(r_1,r_2)$ </td> 
-        <td> $\[\text{Association}(c,p_2,r_2)\overset{0.80}{\longrightarrow}\text{Association}(c,p_1,r_1)\]$ </td>
-    </tr>
-</table>
+<p style="text-align:center">表 2. 关联资源与安全检查的概率推断模式</p>
+
+| 模式 |                   条件                    |                           概率分配                           |
+| :--: | :---------------------------------------: | ---------------------------------------------------------- |
+|  P1  |     $ControlFlowDependency(c,\{r\})$      |               $Association(c,p,r)=true(0.95)$                |
+|  P2  | $ControlFlowDependency(c,R) \vee r \in R$ |               $Association(c,p,r)=true(0.60)$                |
+|  P3  |           $SameBlock(r_1,r_2)$            | $\text{Association}(c,p_1,r_2)\overset{0.60}{\longrightarrow}\text{Association}(c, p_1, r_1)$ |
+|  P4  |      $SemanticCorrelation(r_1,r_2)$       | $\text{Association}(c,p_2,r_2)\overset{0.70}{\longrightarrow}\text{Association}(c, p_1, r_1)$ |
+|  P5  |       $DataFlowDependency(r_1,r_2)$       | $\text{Association}(c,p_2,r_2)\overset{0.80}{\longrightarrow}\text{Association}(c,p_1,r_1)$ |
 
 `检测访问控制不完整性`。鉴于提取的跨链桥接访问控制约束，如果检测到以下任意一种情况，SmartAxe 识别包含访问控制不完整性 CCV 的桥接合约，并输出相关的漏洞函数。
 
