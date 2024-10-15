@@ -285,6 +285,8 @@ SmartAxe 将访问控制约束的资源分为四种类型：（1）字段访问�
 
 然后，SmartAxe 引入了先验概率来表示关联 $Association(c_k,p_j,r_i)$ 的置信度。先验概率是一个介于 0 和 1 之间的值，表示我们对关联 $Association(c_k,p_j,r_i)$ 的信任程度。此外，SmartAxe 通过分析访问控制属性（例如，控制流、数据流和资源与访问控制检查之间的语义关系）来确定先验概率。受之前研究 [El-Rewini et al. 2022] 的启发，我们总结了跨链桥接合约中资源与安全检查之间的专用关联模式及其相应的先验概率，如表 2 所示。
 
+<table border="1">    <caption>表 2. 关联资源与安全检查的概率推断模式</caption>    <tr>        <th>模式</th>        <th>条件</th>        <th>概率分配</th    </tr>    <tr>        <td>P1</td>        <td> $ControlFlowDependency(c,\{r\})$ </td>        <td> $Association(c,p,r)=true(0.95)$ </td>    </tr>    <tr>        <td>P2</td>        <td> $ControlFlowDependency(c,R)$ $\vee$ $r$ $\in$ $R$ </td>        <td> $Association(c,p,r)=true(0.60)$ </td>    </tr>    <tr>        <td>P3</td>        <td> $SameBlock(r_1,r_2)$ </td>        <td> $\[\text{Association}(c,p_1,r_2)\overset{0.60}{\longrightarrow}\text{Association}(c, p_1, r_1)\]$ </td>    </tr>    <tr>        <td>P4</td>        <td> $SemanticCorrelation(r_1,r_2)$ </td>        <td> $\[\text{Association}(c,p_2,r_2)\overset{0.70}{\longrightarrow}\text{Association}(c, p_1, r_1)\]$ </td>    </tr>    <tr>        <td>P5</td>        <td> $DataFlowDependency(r_1,r_2)$ </td>        <td> $\[\text{Association}(c,p_2,r_2)\overset{0.80}{\longrightarrow}\text{Association}(c,p_1,r_1)\]$ </td>    </tr></table>
+
 `检测访问控制不完整性`。鉴于提取的跨链桥接访问控制约束，如果检测到以下任意一种情况，SmartAxe 识别包含访问控制不完整性 CCV 的桥接合约，并输出相关的漏洞函数。
 
 1. `访问控制遗漏`。SmartAxe 通过将提取的访问控制约束与安全检查模型（表 1）进行比较来检测访问控制遗漏。如果 SmartAxe 发现某个类别（或视角）中存在安全检查遗漏，则 SmartAxe 会报告相应的漏洞函数。
