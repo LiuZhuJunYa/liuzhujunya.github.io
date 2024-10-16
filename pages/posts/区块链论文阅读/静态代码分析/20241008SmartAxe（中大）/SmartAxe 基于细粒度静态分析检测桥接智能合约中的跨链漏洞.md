@@ -295,7 +295,7 @@ SmartAxe 将访问控制约束的资源分为四种类型：（1）字段访问�
 
 在本小节中，SmartAxe 通过对单链控制流图（xCFG）和数据流图（xDFG）进行对齐和连接来构建跨链控制流图。基于构建的图，SmartAxe 识别了语义不一致性的 CCV。
 
-`图构建`。SmartAxe 构建的 xCFG 可表示为 $G_c=(N_c,E_c,X_e)$ 。具体来说，SmartAxe 编码了以下信息：（1）xCFG 的节点集是由程序操作的基本块节点、表示跨链数据传输的中继节点（relayer node）以及表示跨链桥接客户端的客户端节点（client node）组成。这里， $N_b$ 表示基本块节点， $N_r$ 表示中继节点， $N_l$ 表示客户端节点。因此，我们有 $N_c:=\{N_b$ $\cup$ $N_r $\cup$ $N_l\}$ ；（2）xCFG 的边由控制流边 $E_f$ 、事件发出边 $E_e$ 和信息传递边 $E_i$ 组成。这里， $E_e$ 表示中继器和客户端监视已发出的事件（即，中继器监视源链上发出的存款事件或客户端监视目标链上的提取事件）。 $E_i$ 表示中继器将信息传递给目标链合约以执行授权和提取的流向。同样地，我们有 $E_c:=\{E_f$ $\cup$ $E_e$ $\cup$ $E_i\}$ ；（3） $X_e(E_c)$ $\rightarrow$ $\{CF,Emitting,Informing\}$ 是一个将边映射到三种类型之一的标记函数。 
+`图构建`。SmartAxe 构建的 xCFG 可表示为 $G_c=(N_c,E_c,X_e)$ 。具体来说，SmartAxe 编码了以下信息：（1）xCFG 的节点集是由程序操作的基本块节点、表示跨链数据传输的中继节点（relayer node）以及表示跨链桥接客户端的客户端节点（client node）组成。这里， $N_b$ 表示基本块节点， $N_r$ 表示中继节点， $N_l$ 表示客户端节点。因此，我们有 $N_c:=\{N_b$ $\cup$ $N_r$ $\cup$ $N_l\}$ ；（2）xCFG 的边由控制流边 $E_f$ 、事件发出边 $E_e$ 和信息传递边 $E_i$ 组成。这里， $E_e$ 表示中继器和客户端监视已发出的事件（即，中继器监视源链上发出的存款事件或客户端监视目标链上的提取事件）。 $E_i$ 表示中继器将信息传递给目标链合约以执行授权和提取的流向。同样地，我们有 $E_c:=\{E_f$ $\cup$ $E_e$ $\cup$ $E_i\}$ ；（3） $X_e(E_c)$ $\rightarrow$ $\{CF,Emitting,Informing\}$ 是一个将边映射到三种类型之一的标记函数。 
 
 此外，SmartAxe 通过对 xCFG 进行数据流分析来构建 xDFG。因此，就数据结构而言，SmartAxe 构建的 xDFG 类似于传统的数据流图。xDFG 可以表示为 $G_d=(N_d, E_d)$ 。这里， $N_d$ 表示桥接合约的不同程序操作， $E_d$ 表示程序操作之间的数据依赖关系。
 
@@ -349,9 +349,11 @@ SmartAxe 通过在 SmartState [Liao et al. 2023]中提出的方法进行污点�
         <td>SSTORE, BALANCE, ADDRESS, CCV 指示器, 客户端节点</td>
     </tr>
 </table>
+<p style="text-align:center"><img src="./6.png" alt="bug"/></p>
 
+<p style="text-align:center">图 6. 动机示例中漏洞检测的过程</p>
 
-接下来，我们以图 2 中的激励示例为例来展示 CCV 的发现过程，过程如图 6 所示。对于左侧示例中的合约，SmartAxe 确定函数 Receive 包含访问控制不完整性，作为 CCV 指示器，因为 Receive 省略了签名的验证检查（第 6 行和第 7 行）。然后，SmartAxe 搜索条件 2，并确定函数 Receive 是执行路径的入口点，因为 Receive 是一个可以被外部攻击者访问的公共函数。最后，SmartAxe 通过污点分析调查受漏洞影响的状态变量，满足条件 3。结果，SmartAxe 报告了合约 ContextUpgradeSafe 中的漏洞如下， $Receive$ $\rightarrow$ $_transfer$ $\rightarrow$ ${received,balance}$ 。
+接下来，我们以图 2 中的激励示例为例来展示 CCV 的发现过程，过程如图 6 所示。对于左侧示例中的合约，SmartAxe 确定函数 Receive 包含访问控制不完整性，作为 CCV 指示器，因为 Receive 省略了签名的验证检查（第 6 行和第 7 行）。然后，SmartAxe 搜索条件 2，并确定函数 Receive 是执行路径的入口点，因为 Receive 是一个可以被外部攻击者访问的公共函数。最后，SmartAxe 通过污点分析调查受漏洞影响的状态变量，满足条件 3。结果，SmartAxe 报告了合约 ContextUpgradeSafe 中的漏洞如下， $Receive$ $\rightarrow$ $\_transfer$ $\rightarrow$ ${received,balance}$ 。
 
 同样，SmartAxe 在右侧示例中的合约 Chain_Router 中发现漏洞，如下所示， $Deposit$ $\rightarrow$ $Withdrawal$ $\rightarrow$ ${ETHbalance}$ 。
 
