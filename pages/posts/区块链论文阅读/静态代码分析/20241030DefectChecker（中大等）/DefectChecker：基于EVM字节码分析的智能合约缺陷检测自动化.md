@@ -88,15 +88,15 @@ Block 2:
 | 合约缺陷                    | 定义                                                       | 影响级别 |
 | --------------------------- | ---------------------------------------------------------- | -------- |
 | 交易状态依赖性 (TSD)        | 使用`tx.origin`检查权限                                    | IP1      |
+| 外部影响下的拒绝服务 (DuEI) | 在可能受到外部用户影响的循环中抛出异常                     | IP2      |
 | 严格余额质量 (SBE)          | 使用严格的余额质量来确定执行逻辑                           | IP2      |
+| 重入漏洞 (RE)               | 重入攻击漏洞                                               | IP1      |
 | 嵌套调用 (NC)               | 在无限长度的循环中执行`CALL`指令                           | IP2      |
+| 贪婪合约 (GC)               | 合约可以接收以太币但无法提取                               | IP3      |
 | 未检查的外部调用 (UEC)      | 不检查外部调用函数的返回值                                 | IP3      |
+| 区块信息依赖性 (BID)        | 使用与区块信息相关的函数来确定执行逻辑                     | IP3      |
 | 类型不匹配赋值              | 分配不匹配的类型值，可能导致整数溢出                       | IP2      |
 | 硬编码地址                  | 在智能合约中使用硬编码地址                                 | IP3      |
-| 外部影响下的拒绝服务 (DuEI) | 在可能受到外部用户影响的循环中抛出异常                     | IP2      |
-| 重入漏洞 (RE)               | 重入攻击漏洞                                               | IP1      |
-| 贪婪合约 (GC)               | 合约可以接收以太币但无法提取                               | IP3      |
-| 区块信息依赖性 (BID)        | 使用与区块信息相关的函数来确定执行逻辑                     | IP3      |
 | 数据位置误导                | 本地变量的引用类型（如`struct`、`array`或`mapping`）未明确 | IP2      |
 
 `注：前八种合约缺陷可以通过 DefectChecker 检测`
@@ -115,118 +115,123 @@ Block 2:
 
 #### 智能合约缺陷的示例
 
-(1) `交易状态依赖性 (TSD)`：合约需要检查调用者是否具有执行某些敏感权限函数的正确权限。权限检查失败可能会导致严重后果。`tx.origin`可以获取交易的原始地址，但由于该方法返回的地址取决于交易状态，因此这种方法不可靠。因此，不应使用`tx.origin`来检查调用者是否有权执行函数。
+(1) `交易状态依赖性 (TSD)`：合约需要检查调用者是否有权执行一些权限敏感的函数。权限检查失败会导致严重后果。`tx.origin` 可以获取交易的原始地址，但由于返回的地址依赖于交易状态，这种方法不可靠。因此，不应使用 `tx.origin` 来检查调用者是否有权限执行函数。
 
-`示例`：在列表 1 中，攻击者合约可以通过使用`attack`函数（第 9 行）进行权限检查失败。通过这种方法，任何人都可以执行`sendMoney`函数（第 3 行）并提取合约中的以太币。
+`示例`：在代码示例1中，攻击者合约可以利用 `attack` 函数（代码第9行）使权限检查失效。通过这种方法，任何人都可以执行 `sendMoney` 函数（代码第3行）并提取合约中的以太币。
 
 ```
-contract Victim {
-    address owner = owner_address;
-    function sendMoney(address addr){
-        require(tx.origin == owner);
-        addr.transfer(1 Ether);
-    }
-}
-contract Attacker {
-    function attack(address vim_addr, address myAddr){
-        Victim vic = Victim(vim_addr);
-        vic.sendMoney(myAddr);
-    }
-}
+1	contract Victim {
+2		address owner = owner_address;
+3		function sendMoney(address addr){
+4			require(tx.origin == owner);
+5			addr.transfer(1 Ether);
+6		}
+7	}
+8	contract Attacker {
+9		function attack(address vim_addr, address myAddr){
+10			Victim vic = Victim(vim_addr);
+11			vic.sendMoney(myAddr);
+12		}
+13	}
 ```
 
-`可能的解决方案`：Solidity 提供`msg.sender`来获取发送者地址，可以用来代替`tx.origin`来检查权限。
+`可能的解决方案`：Solidity 提供了 `msg.sender` 来获取发送者地址，可以用其来进行权限检查，而不是使用 `tx.origin`。
 
 (2) `外部影响下的拒绝服务 (DuEI)`：智能合约将在运行期间检测到异常时回滚交易。如果导致异常的错误无法修复，该函数将会导致服务拒绝（DoS）错误。
 
-`示例`：列表 2 显示了这样的示例。`members`是存储多个地址的数组。然而，其中一个地址是攻击者合约，转账功能可能触发`out-of-gas`错误，因为 2300 gas 的限制[2]。此时，智能合约状态会回滚。由于代码无法修改，合约无法从`members`列表中移除攻击者地址，这意味着如果攻击者不断攻击，下面的功能将无法正常工作。
+`示例`：在代码清单2中，`members` 是一个存储了多个地址的数组。其中一个地址是攻击者合约，当调用 `transfer` 函数时，由于 2300 gas 限制，可能会触发 "out-of-gas"（超出 gas）异常【2】。此时，合约状态将回滚。由于代码无法修改，合约无法从 `members` 列表中移除攻击地址，这意味着如果攻击者不停止攻击，后续的函数将无法继续执行。
 
 ```
-for(uint i = 0; i < members.length; i++){
-    if(this.balance > 0.1 ether)
-        members[i].transfer(0.1 ether);
-}
+1	for(uint i = 0; i < members.length; i++){
+2		if(this.balance > 0.1 ether)
+3			members[i].transfer(0.1 ether);
+4	}
 ```
 
-`可能的解决方案`：开发者可以使用布尔值检查代替在循环中抛出异常。例如，在列表2的第3行中使用`if(members[i].send(0.1 ether) == false) break;`。
+`可能的解决方案`：开发者可以使用布尔值检查代替在循环中抛出异常。例如，在列表 2 的第 3 行中使用`if(members[i].send(0.1 ether) == false) break;`。
 
-(3) `严格余额质量 (SBE)`：攻击者可以通过强制使用`selfdestruct()`[6]向任何合约发送以太币。此方法不会触发回退函数，这意味着受害合约无法拒绝这些以太币。因此，智能合约的逻辑可能因攻击者发送的意外以太币而无法工作。
+(3) `严格余额相等 (SBE)`：攻击者可以通过强制使用`selfdestruct()`[6]向任何合约发送以太币。此方法不会触发回退函数，这意味着受害合约无法拒绝这些以太币。因此，智能合约的逻辑可能因攻击者发送的意外以太币而无法工作。
 
 `示例`：列表 3 中的`doingSomething()`函数仅在余额状态等于 1 ETH 时触发。然而，攻击者可以向合约发送 1 Wei（1 ETH = 1e18 Wei），导致余额不再等于 1 ETH。
 
 ```
-if(this.balance == 1 ether) doingSomething();
+1	if(this.balance == 1 ether) doingSomething();
 ```
 
 `可能的解决方案`：合约可以使用`>=`来代替`==`，因为攻击者只能添加余额。在这种情况下，攻击者难以影响程序的逻辑。
 
-(4) `重入漏洞 (RE)`：在以太坊中，可以通过`Call`方法在一次执行中多次调用函数。当合约调用另一个合约时，调用会等待调用完成[20]。因此，在某些情况下可能导致多次调用和资金转移。
+(4) `重入漏洞 (RE)`：在以太坊中，通过 `call` 方法，一个函数可以在一次执行中多次调用自己。当一个合约调用另一个合约时，执行会等待被调用的合约执行完毕。因此，这可能在某些情况下导致多次调用和重复转账。
 
-`示例`：列表 4 显示了一个重入漏洞的示例。这里有两个智能合约，即`Victim`合约和`Attacker`合约。`Attacker`合约用于从`Victim`合约中转移以太币，`Victim`合约可以看作银行，用户可以通过调用`withdraw()`函数提取以太币。
+`示例`：代码清单4展示了一个重入攻击的示例。这里有两个智能合约，即 `Victim` 合约和 `Attacker` 合约。`Attacker` 合约用于从 `Victim` 合约中转出以太币，而 `Victim` 合约可以被视为一个“银行”，存储了用户的以太币。用户可以调用 `withdraw` 函数来提取他们的以太币，而 `withdraw` 函数中存在重入漏洞。
+
+首先，`Attacker` 合约通过 `reentrancy()` 函数（第16行）调用 `Victim` 合约的 `withdraw()` 函数（第3行）。在第16行的 `addr` 参数是 `Victim` 合约的地址。正常情况下，`Victim` 合约会将以太币发送给调用者（第6行），然后在第7行将调用者的余额重置为 0。然而，由于 `Victim` 合约在余额重置之前发送了以太币，导致 `Attacker` 合约在收到以太币时自动触发其回退函数（fallback function）（第13行），并再次调用 `withdraw()` 函数。
+
+这样，调用顺序变成：L16-17 → L3-6 → L13-14 → L3-6 → L13-14 ...，如此循环，直到 `Victim` 合约的余额耗尽。
 
 ```
-contract Victim {
-    mapping(address => uint) public userBalance;
-    function withdraw() {
-        uint amount = userBalance[msg.sender];
-        if(amount > 0){
-            msg.sender.call.value(amount)();
-            userBalance[msg.sender] = 0;
-        }
-    }
-}
-contract Attacker {
-    function() payable {}
-    Victim victim;
-    function reentry(address addr){
-        victim = Victim(addr);
-        victim.withdraw();
-    }
-}
+1	contract Victim {
+2		mapping(address => uint) public userBalance;
+3		function withdraw() {
+4			uint amount = userBalance[msg.sender];
+5			if (amount > 0) {
+6				msg.sender.call.value(amount)();
+7				userBalance[msg.sender] = 0;
+8			}
+9		}
+10	}
+11	contract Attacker {
+12		function() payable {
+13			Victim(msg.sender).withdraw();
+14		}
+15		function reentrancy(address addr) {
+16			Victim(addr).withdraw();
+17		}
+18	}
 ```
 
 `可能的解决方案`：以太坊中有三种`Call`方法可用于发送以太币，即`address.send()`、`address.transfer()`和`address.call.value()`。`address.send()`和`address.transfer()`将更改最大gas限制为2300 gas单位，如果接收者是合约账户，则2300 gas单位不足以传输以太币，这意味着这两种方法不能导致重入漏洞。因此，使用`address.send()`和`address.transfer()`代替`address.call.value()`可以避免重入漏洞。
 
-(5) `嵌套调用 (NC)`：`CALL`指令非常昂贵（9000 gas用于非零值传输作为`CALL`操作的一部分）[2]。如果循环包含`CALL`指令但未限制循环迭代次数，总gas费用可能有很大风险超过其gas上限。
+(5) `嵌套调用 (NC)`：`CALL` 指令非常昂贵（在非零值转账中，作为 `CALL` 操作的一部分，需支付 9000 gas）。如果循环中包含 `CALL` 指令，但没有限制循环的迭代次数，则总 gas 消耗可能会超出限制，导致合约执行失败。
 
-`示例`：在列表5中，如果我们不限制循环迭代次数，攻击者可以恶意增加其大小，导致`out-of-gas`错误。一旦发生`out-of-gas`错误，此功能将无法再工作，因为无法减少循环迭代次数。
+`示例`：在清单5中，如果不限制循环的迭代次数，攻击者可能会恶意增加数组的大小，导致 "out-of-gas"（超出 gas）错误。一旦发生 out-of-gas 错误，该函数将无法再正常工作，因为无法减少循环的迭代次数。
 
 ```
-for(uint i = 0; i < member.length; i++){
-    member[i].send(1 wei);
-}
+1	for(uint i = 0; i < member.length; i++){
+2		member[i].send(1 wei);
+3	}
 ```
 
-`可能的解决方案`：开发人员应估算最大循环迭代次数并限制循环迭代次数。
+`可能的解决方案`：开发者应估算循环的最大迭代次数，并对循环进行限制。
 
-(6) `贪婪合约 (GC)`：智能合约中的以太币只能通过向其他账户或使用`selfdestruct`发送以太币进行提取。否则，智能合约的创建者甚至无法提取以太币，这些以太币将永远锁定。因此，如果合约可以接收以太币（包含可支付函数）但没有方法转移给其他人，则称该合约为贪婪合约。
+(6) `贪婪合约 (GC)`：智能合约中的以太币只能通过将以太币发送到其他账户或使用 `selfdestruct` 函数来提取。否则，即使是合约的创建者也无法提取这些以太币，导致资金永久锁定在合约中。我们将能够接收以太币（包含 `payable` 函数）但没有任何方法可以提取以太币的合约称为“贪婪合约”。
 
 `示例`：列表6是一个贪婪合约。该合约包含一个可支付的回退函数（第2行），可以接收以太币，但合约中没有任何方法提取以太币。
 
 ```
-contract Greedy {
-    function() payable {}
-    function process(address addr) {...}
-}
+1	contract Greedy {
+2		function() payable {
+3			process(msg.sender);
+4		}
+5		function process(address addr) {...}
+6	}
 ```
 
 `可能的解决方案`：如果合约可以接收以太币，应添加一个函数以提取这些以太币。
 
-(7) `未检查的外部调用 (UEC)`：Solidity 提供了多种函数（`address.send()`、`address.call()`）用于在合约之间转移以太币或调用函数。然而，这些与调用相关的方法可能会失败，例如出现网络错误或`out-of-gas`错误。当错误发生时，这些函数会返回布尔值但从不抛出异常。如果调用者不检查外部调用的返回值，他们无法确保以下代码逻辑正确执行。
+(7) `未检查的外部调用 (UEC)`：Solidity 提供了许多函数（如 `address.send()` 和 `address.call()`）来转账或在合约之间调用函数。然而，这些与调用相关的方法可能会失败，例如由于网络错误或 gas 不足。当发生错误时，这些函数会返回布尔值，但不会抛出异常。如果调用者不检查外部调用的返回值，就无法确保后续代码逻辑的正确性。
 
-`示例`：列表7显示了这样一个示例。第1行没有检查`address.send()`的返回值。当以太币转账失败时，第1行无法确保以下代码逻辑的执行是否正确。
+`示例`：在清单7中，第一行代码未检查 `address.send()` 的返回值。由于以太币转账有时可能会失败，第一行代码无法确保后续代码逻辑的正确性。
 
 ```
-address.send(ethers);
-doingSomething(); //bad
+address.send(ethers); doingSomething(); //bad
 if(address.send(ethers)) doingSomething(); //good
 ```
 
-`可能的解决方案`：始终检查`address.send()`和`address.call()`的返回值。
+`可能的解决方案`：始终检查 `address.send()` 和 `address.call()` 的返回值。
 
-(8) `区块信息依赖性 (BID)`：开发者可以利用一系列与区块相关的函数来获取区块信息。例如，`block.blockhash`用于获取当前区块的哈希值。许多智能合约依赖这些函数来决定程序的执行，例如生成随机数。然而，矿工可以影响区块信息，例如矿工可以将区块时间戳延迟约900秒[20]。在这种情况下，区块信息依赖操作在一定程度上可以被矿工控制。
+(8) `区块信息依赖性 (BID)`：开发者可以利用一系列与区块相关的函数来获取区块信息。例如，`block.blockhash` 用于获取当前区块的哈希值。许多智能合约依赖这些函数来决定程序的执行流程，例如生成随机数。然而，矿工可以在一定程度上影响区块信息，例如，矿工可以将区块的时间戳改变约 900 秒【20】。在这种情况下，区块信息依赖操作可以在一定程度上被矿工控制。
 
-`示例`：列表8中的合约是一个轮盘合约。该合约使用区块哈希值来选择获胜者，并向获胜者发送1个以太币作为奖励。然而，矿工可以控制结果，因此矿工可以始终成为赢家。
+`示例`：清单8中的合约是一个轮盘赌合约。合约利用区块哈希值来选择获胜者，并向获胜者发送 1 个以太币作为奖励。然而，矿工可以控制结果，因此矿工可以始终成为赢家。
 
 ```
 address[] participators;
